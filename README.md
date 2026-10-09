@@ -2,9 +2,9 @@
 
 **Read the logs of services running in secured environments, from your own terminal.**
 
-Secured environments such as pilot, pre-production and production run on private AKS clusters. For security reasons their Kubernetes API is not reachable from the internet, so `kubectl` on your laptop cannot read their logs. The usual workaround is to sign in to a jump box inside the cloud network and run commands there.
+Secured environments such as pilot, pre-production and production run on private AKS clusters. For security reasons they cannot be reached from the internet, so `kubectl` on your laptop cannot read their logs.
 
-castle makes that hop for you. It connects through Azure Bastion and the jump box with your own Entra ID sign-in, and lets you view, follow and search those services' logs in your local terminal. The clusters stay private. `clogs` is the short alias.
+castle lets you view, follow and search those services' logs in your local terminal, signed in as yourself with Entra ID. The clusters stay private. `clogs` is the short alias.
 
 ```
 clogs orders-service -f                        # follow live
@@ -22,19 +22,15 @@ clogs help                                     # usage + the saved service lists
 
 - **The clusters stay private.** castle opens nothing to the internet, and the connection can only be used from your own machine.
 - **Your identity, your permissions.** Every request carries your own Entra ID token, so you see only what your Kubernetes RBAC allows. There are no shared accounts and no stored passwords or tokens.
-- **Short-lived keys.** The SSH key and certificate Bastion needs are issued for one hour, kept in a private folder, and deleted when the connection closes.
-- **Read-only.** castle itself only lists deployments and reads logs. Anything else you run through `clogs kubeconfig` is limited by your own RBAC.
-- **Nothing left behind.** The connection closes after the idle timeout; nothing is installed or stored on the jump box.
+- **Short-lived keys.** The sign-in keys castle needs last one hour, stay in a private folder on your machine, and are deleted when the connection closes.
+- **Read-only.** castle itself only lists services and reads logs. Anything else you run through `clogs kubeconfig` is limited by your own RBAC.
+- **Nothing left behind.** The connection closes after the idle timeout; nothing is installed or stored on the servers it connects through.
 
 ## Requirements
 
-**Azure access**
+**Azure access.** The same access your team uses to reach these environments: sign-in to the environment's jump box through Azure Bastion, and permission to read pod logs in the namespaces you need. `clogs doctor` shows what is missing; your Azure administrator can grant it.
 
-- An Azure Bastion with native client support (Standard or Premium SKU, tunnelling enabled), and Reader on it.
-- A Linux VM with Entra ID SSH login to use as the jump box: Reader on the VM and its network interface, and Virtual Machine User Login (or Administrator Login).
-- Permission to read pod logs in the namespaces you need, for example Azure Kubernetes Service RBAC Reader.
-
-**Tools.** castle checks for these on every run and prints the install command for anything missing. It installs the Azure CLI extensions it needs (`bastion`, `ssh`) itself.
+**Tools.** castle checks for these on every run and prints the install command for anything missing. It installs the Azure CLI extensions it needs itself.
 
 | Tool | macOS | Windows | Linux |
 |---|---|---|---|
@@ -59,10 +55,10 @@ Check: `clogs version` prints the version.
 2. Set up castle, with a team config if your team has one (see "Share a team config"):
    - `clogs init --from <team config file or URL>`, or
    - `clogs init` to discover everything from your own access, or
-   - `clogs init --jumpbox <vm-name>` when several VMs could be the jump box.
+   - `clogs init --jumpbox <name>` if castle asks you to choose a jump box.
 3. Check everything: `clogs doctor` ends with `All good.`
 
-`init` takes about 30 seconds. It finds the Bastion, the jump box, the private clusters the jump box can reach, and the app namespaces you may read logs in, then groups them into environments from their names (`pilot`, `dev`, `prod`, …). A deployment whose name carries another environment, such as `orders-service-preprod` in a dev cluster, becomes its own environment.
+`init` takes about 30 seconds. It finds the services you may read logs in and groups them into environments from their names (`pilot`, `dev`, `prod`, …). A service whose name carries another environment, such as `orders-service-preprod` in a dev cluster, becomes its own environment.
 
 ## Use
 
@@ -110,7 +106,7 @@ environments:
 
 ## Share a team config
 
-1. One person who is set up runs `clogs export team.yaml`. The file holds the connection, the environments and each cluster's host name and certificate authority, so teammates also reach clusters Azure does not list for them.
+1. One person who is set up runs `clogs export team.yaml`. The file holds your team's connection settings and environments.
 2. Share the file. It holds no secrets; everyone still signs in with their own Entra ID account and permissions.
 3. Each teammate saves it in their home folder and runs `clogs init --from ~/team.yaml` (Windows: `$HOME\team.yaml`).
 
@@ -131,7 +127,7 @@ environments:
 | `Azure login expired, opening browser sign-in...` | Sign in in the browser; the command continues. |
 | `AADSTS…` error | `az login --tenant <your tenant domain>`, then run the command again. |
 | `No module named …` | `clogs doctor`; it reinstalls the broken Azure CLI extension. |
-| `Which jump box?` or `found several to choose from as the jump box` | Pick your team's jump box, or run `clogs init --jumpbox <vm-name>` or `clogs init --from <team config>`. |
+| `Which jump box?` or `found several to choose from as the jump box` | Pick your team's jump box, or run `clogs init --jumpbox <name>` or `clogs init --from <team config>`. |
 | `could not open the Bastion connection` | Check the Azure access in "Requirements". |
 | `local port … is in use` | `clogs stop`, then run the command again. |
 | `no service matching "…"` | `clogs apps --env <name>` and copy the right line. |
