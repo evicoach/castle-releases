@@ -13,19 +13,14 @@ clogs apps --env pilot                         # every service, as copyable comm
 clogs help                                     # usage + the saved service lists
 ```
 
-## How it works
+## Connection
 
-```
-your laptop ──▶ Azure Bastion ──▶ jump box (SSH, Entra ID) ──▶ AKS API (private)
-  kubectl runs here, against 127.0.0.1:<port>
-```
-
-- The first command opens one background connection (about 6 s). Every later command, from any terminal, reuses it (about 2 s).
-- It closes itself after 15 idle minutes (`idle_minutes`) and reopens on the next command if it drops.
+- The first command connects in the background (about 6 s). Every later command, from any terminal, reuses that connection (about 2 s).
+- It closes itself after 15 idle minutes (`idle_minutes`) and reconnects on the next command if it drops.
 
 ## Security
 
-- **The clusters stay private.** castle opens nothing to the internet. Each cluster's API is forwarded through Bastion to `127.0.0.1` on your machine only.
+- **The clusters stay private.** castle opens nothing to the internet, and the connection can only be used from your own machine.
 - **Your identity, your permissions.** Every request carries your own Entra ID token, so you see only what your Kubernetes RBAC allows. There are no shared accounts and no stored passwords or tokens.
 - **Short-lived keys.** The SSH key and certificate Bastion needs are issued for one hour, kept in a private folder, and deleted when the connection closes.
 - **Read-only.** castle itself only lists deployments and reads logs. Anything else you run through `clogs kubeconfig` is limited by your own RBAC.
